@@ -5,7 +5,11 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from CncLibrary import CncLibrary
 from CncLibrary import CncLibraryException
-from StringIO import StringIO
+try:
+    from StringIO import StringIO ## for Python 2
+except ImportError:
+    from io import StringIO ## for Python 3
+
 
 class TestCncLibrary(unittest.TestCase):
 

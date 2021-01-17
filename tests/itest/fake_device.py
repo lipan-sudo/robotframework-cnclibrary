@@ -8,6 +8,7 @@ class FakeDevice(object):
     def write(self, text):
         # if text.endswith("\r\n\r\n"):
         #     self.connected = True
+        text = text.decode()
         self.line = text
         if text.startswith("?"):
             self.line = "MPos:"+str(self.position[0])+","+str(self.position[1])+","+str(self.position[2])
@@ -32,7 +33,7 @@ class FakeDevice(object):
     def close(self):
         self.connected = False
     def readline(self):
-        return self.line
+        return self.line.encode()
 
 class FakeDeviceException:
     pass

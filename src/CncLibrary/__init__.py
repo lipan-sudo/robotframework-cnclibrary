@@ -10,7 +10,7 @@ try:
     import serial
 except ImportError:
     raise CncLibraryException("pyserial needs to be installed!")
-from version import VERSION
+from .version import VERSION
 
 __version__ = VERSION
 
@@ -33,8 +33,8 @@ class CncLibrary(object):
         self.xy_speed = xy_speed
         self.z_speed = z_speed
         self.timeout = 10
-        if not device or not baud:
-            raise CncLibraryException('Device and baud is not set')
+        # if not device or not baud:
+        #    raise CncLibraryException('Device and baud is not set')
         self.locations = {}
 
     @property
@@ -44,17 +44,21 @@ class CncLibrary(object):
             return self._serial
         else:
             self._serial = serial.Serial(self.device, self.baud)
-            self._serial.write("\r\n\r\n")
+            # self._serial.write("\r\n\r\n".encode())
             time.sleep(2)   # Wait for grbl to initialize
             self._serial.flushInput()
             return self._serial
 
     def _send_gcode(self, gcode_line):
         """ send gcode to serial device """
-        print 'Sending: ' + gcode_line
-        self.serial.write(gcode_line + '\n')
+        print( 'Sending: ' + gcode_line )
+        # print(type(gcode_line) )
+        self.serial.write((gcode_line + '\r\n').encode())             
+        self.serial.flush()            
         grbl_out = self.serial.readline()    # Wait for grbl response with carriage return
-        print ' : ' + grbl_out.strip()
+        print( ' : ' + grbl_out.strip().decode() )
+        time.sleep(2)   # discard following contents
+        self._serial.flushInput()
 
     def _move(self, speed, xcord, ycord):
         """ move the tip of the device in xy-plane and wait for it to reach destination """
@@ -64,10 +68,10 @@ class CncLibrary(object):
 
     def _current_position(self):
         """ return current position from the device """
-        self.serial.write("?")
+        self.serial.write("?".encode())
         grbl_out = self.serial.readline()    # Wait for grbl response with carriage return
-        grbl_out = grbl_out.split("MPos:", 1)[1]
-        coordinates = grbl_out.split(',', 3)
+        grbl_out = grbl_out.split("MPos:".encode(), 1)[1]
+        coordinates = grbl_out.split(','.encode(), 3)
         x = round(float(coordinates[0]), 1)
         y = round(float(coordinates[1]), 1)
         z = round(float(coordinates[2]), 1)
@@ -78,7 +82,7 @@ class CncLibrary(object):
     def request_position(self):
         """ Returns current position of the device as tuple """
         position = self._current_position()
-        print position
+        print( position )
         return position
 
     def close_connection(self):
@@ -99,14 +103,14 @@ class CncLibrary(object):
         gcode = 'G92 X0 Y0 Z0'
         self._send_gcode(gcode)
         time.sleep(0.2)
-        print self.locations['device_location']['x']
-        print self.locations['device_location']['y']
-        print self.locations['device_location']['z']
+        print( self.locations['device_location']['x'] )
+        print( self.locations['device_location']['y'] )
+        print( self.locations['device_location']['z'] )
 
     def raise_tool(self):
         """ Raise the tooltip of the mill to its safe height defined as 'device_location' z-coordinate """
         gcode = "G01 F500 Z"+str(self.locations['device_location']['z'])
-        print gcode
+        print( gcode )
         with self._pressing(self.locations['device_location']['z']):
             self._send_gcode(gcode)
 
@@ -194,6 +198,12 @@ class CncLibrary(object):
             for line in f.readlines():
                 self._send_gcode(line)  
 
+    def execute_gcode(self, command):
+        """
+        Excute gcode directly. Gcodes are sent directly to serial port without any assurance what they actually do.
+        """
+        self._send_gcode(command)
+
     @contextmanager
     def _moving(self, target_x, target_y, target_z=None):
         """ 
@@ -216,8 +226,8 @@ class CncLibrary(object):
         """ ensure that tool is in given coordinates """
         init_time = time.time()
         while self._current_position() != (float(target_x), float(target_y), float(target_z)):
-            print self._current_position()
-            print target_x, target_y, target_z
+            print( self._current_position() )
+            print( target_x, target_y, target_z )
             time.sleep(0.2)
             elapsed = time.time() - init_time
             if elapsed > self.timeout:
@@ -227,8 +237,8 @@ class CncLibrary(object):
         """ ensure that tool is in given z-position """
         init_time = time.time()
         while (self._current_position()[2] != float(target)):
-            print self._current_position()[2]
-            print target
+            print( self._current_position()[2] )
+            print( target )
             time.sleep(0.2)
             elapsed = time.time() - init_time
             if elapsed > self.timeout:
